@@ -1,0 +1,42 @@
+﻿# Kafka Integration
+kafka-python==2.2.15
+
+# Data Processing
+pandas
+numpy
+
+# Machine Learning
+scikit-learn
+joblib
+
+# Visualization
+matplotlib
+seaborn
+streamlit
+plotly
+
+# Hadoop Ecosystem Components
+# HDFS Integration
+hdfs
+
+# HBase Integration
+happybase
+thrift
+
+# Spark Integration (PySpark)
+pyspark
+
+# Zookeeper Integration
+kazoo
+
+# Additional ML Libraries
+scipy
+
+# Monitoring and Logging
+python-dateutil
+pytz
+
+# Reporting and Display
+tabulate
+
+six==1.17.0

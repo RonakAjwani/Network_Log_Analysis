@@ -1,0 +1,225 @@
+{
+  "pipeline": {
+    "name": "ddos-detection-pipeline",
+    "version": "1.0.0",
+    "description": "Kafka-based DDoS detection pipeline with Hadoop ecosystem"
+  },
+  
+  "kafka": {
+    "bootstrap_servers": "localhost:9092",
+    "topics": {
+      "network_logs": "network-logs",
+      "ddos_alerts": "ddos-alerts",
+      "spark_alerts": "spark-alerts"
+    },
+    "consumer_group": "ddos-detector-group",
+    "producer_config": {
+      "compression_type": "snappy",
+      "batch_size": 16384,
+      "linger_ms": 10
+    }
+  },
+  
+  "hdfs": {
+    "namenode_url": "http://localhost:9870",
+    "webhdfs_url": "http://localhost:9870/webhdfs/v1",
+    "base_path": "/ddos",
+    "paths": {
+      "raw_logs": "/ddos/logs/raw",
+      "processed_logs": "/ddos/logs/processed",
+      "alerts": "/ddos/logs/alerts",
+      "models": "/ddos/models"
+    },
+    "buffer_size": 100,
+    "compression": "snappy"
+  },
+  
+  "hbase": {
+    "host": "localhost",
+    "port": 9090,
+    "tables": {
+      "alerts": "ddos_alerts",
+      "ip_statistics": "ip_statistics"
+    },
+    "column_families": {
+      "alert": ["timestamp", "source_ip", "severity", "detection_method"],
+      "source": ["ip_address", "user_agent"],
+      "metrics": ["request_rate", "error_rate", "response_time"],
+      "features": ["url_diversity", "bytes_sent"]
+    }
+  },
+  
+  "spark": {
+    "master_url": "spark://localhost:7077",
+    "app_name": "DDoS-Detection",
+    "config": {
+      "spark.executor.memory": "2g",
+      "spark.executor.cores": 2,
+      "spark.streaming.kafka.maxRatePerPartition": 1000,
+      "spark.sql.streaming.checkpointLocation": "/tmp/spark-checkpoints",
+      "spark.sql.shuffle.partitions": 4
+    },
+    "streaming": {
+      "window_duration": "5 minutes",
+      "slide_duration": "1 minute",
+      "watermark": "10 minutes"
+    }
+  },
+  
+  "detection": {
+    "rule_based": {
+      "request_rate_threshold": 50,
+      "error_rate_threshold": 0.7,
+      "response_time_threshold": 5.0,
+      "url_diversity_threshold": 1,
+      "alert_cooldown_seconds": 30
+    },
+    "ml_based": {
+      "model_type": "kmeans",
+      "n_clusters": 3,
+      "features": [
+        "request_count",
+        "requests_per_minute",
+        "avg_response_time",
+        "max_response_time",
+        "stddev_response_time",
+        "error_count",
+        "error_rate",
+        "avg_bytes_sent",
+        "url_diversity"
+      ],
+      "anomaly_score_threshold": 0.8
+    },
+    "alert_severity_levels": {
+      "LOW": 1,
+      "MEDIUM": 2,
+      "HIGH": 3,
+      "CRITICAL": 4
+    }
+  },
+  
+  "monitoring": {
+    "metrics_interval_seconds": 30,
+    "log_level": "INFO",
+    "enable_console_output": true,
+    "enable_file_output": true,
+    "log_file": "logs/pipeline.log"
+  },
+  
+  "zookeeper": {
+    "hosts": "localhost:2181",
+    "namespace": "ddos-detection",
+    "session_timeout": 30000,
+    "paths": {
+      "config": "/ddos-detection/config",
+      "components": "/ddos-detection/components",
+      "leaders": "/ddos-detection/leaders",
+      "locks": "/ddos-detection/locks",
+      "health": "/ddos-detection/health"
+    },
+    "coordination": {
+      "enable_leader_election": true,
+      "enable_config_management": true,
+      "enable_health_monitoring": true,
+      "heartbeat_interval_seconds": 5
+    }
+  },
+  
+  "mahout_ml": {
+    "training": {
+      "hdfs_data_path": "/ddos/logs/raw",
+      "hdfs_model_path": "/ddos/models",
+      "sample_fraction": 1.0,
+      "algorithms": [
+        "kmeans",
+        "bisecting_kmeans",
+        "random_forest",
+        "gradient_boosting"
+      ],
+      "kmeans_clusters": 4,
+      "random_forest_trees": 100,
+      "auto_retrain_threshold": 10000
+    },
+    "feature_engineering": {
+      "window_size_minutes": 5,
+      "aggregation_functions": ["count", "avg", "max", "stddev", "sum"]
+    }
+  },
+  
+  "bigdata_analytics": {
+    "enable": true,
+    "analyses": [
+      "traffic_patterns",
+      "suspicious_ips",
+      "attack_patterns",
+      "url_scanning",
+      "response_times",
+      "threat_intelligence"
+    ],
+    "thresholds": {
+      "suspicious_ip_request_rate": 100,
+      "attack_window_requests": 250,
+      "scanning_404_rate": 0.5
+    }
+  },
+  
+  "components": {
+    "log_producer": {
+      "enabled": true,
+      "mode": "normal",
+      "duration_minutes": 5,
+      "ddos_probability": 0.1,
+      "normal_ips": [
+        "192.168.1.10",
+        "192.168.1.20",
+        "192.168.1.30",
+        "10.0.0.5",
+        "10.0.0.15"
+      ],
+      "suspicious_ips": [
+        "203.0.113.10",
+        "198.51.100.50",
+        "203.0.113.100"
+      ]
+    },
+    "hdfs_storage": {
+      "enabled": true,
+      "buffer_size": 100,
+      "partition_by": ["year", "month", "day", "hour"]
+    },
+    "rule_detector": {
+      "enabled": true
+    },
+    "spark_detector": {
+      "enabled": true,
+      "output_mode": "kafka"
+    },
+    "hbase_storage": {
+      "enabled": true,
+      "alert_topics": ["ddos-alerts", "spark-alerts"]
+    },
+    "alert_monitor": {
+      "enabled": true
+    },
+    "zookeeper_coordinator": {
+      "enabled": true,
+      "auto_register": true,
+      "participate_in_leader_election": true
+    },
+    "mahout_ml_trainer": {
+      "enabled": false,
+      "schedule": "manual",
+      "auto_trigger_on_data_threshold": true
+    },
+    "bigdata_analyzer": {
+      "enabled": false,
+      "schedule": "on_demand"
+    },
+    "hbase_analytics": {
+      "enabled": false,
+      "report_schedule": "daily",
+      "auto_export": true,
+      "export_path": "reports/"
+    }
+  }
+}

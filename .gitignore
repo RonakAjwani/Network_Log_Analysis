@@ -1,0 +1,4 @@
+.vscode/
+spark-checkpoints/
+kafka-ddos-detection/venv/
+kafka-ddos-detection/spark-checkpoints/

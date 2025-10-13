@@ -1,0 +1,140 @@
+﻿services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - ddos-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+      - ddos-network
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      - "8080:8080"
+    depends_on:
+      - kafka
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      DYNAMIC_CONFIG_ENABLED: true
+    networks:
+      - ddos-network
+
+  namenode:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    container_name: namenode
+    ports:
+      - "9870:9870"
+      - "9000:9000"
+    volumes:
+      - namenode-data:/hadoop/dfs/name
+    environment:
+      CLUSTER_NAME: ddos-cluster
+      CORE_CONF_fs_defaultFS: hdfs://namenode:9000
+      HDFS_CONF_dfs_replication: 1
+    networks:
+      - ddos-network
+
+  datanode:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: datanode
+    ports:
+      - "9864:9864"
+    volumes:
+      - datanode-data:/hadoop/dfs/data
+    environment:
+      SERVICE_PRECONDITION: "namenode:9870"
+      CORE_CONF_fs_defaultFS: hdfs://namenode:9000
+    depends_on:
+      - namenode
+    networks:
+      - ddos-network
+
+  spark-master:
+    image: apache/spark:3.4.1-scala2.12-java11-python3-ubuntu
+    container_name: spark-master
+    ports:
+      - "8081:8080"
+      - "7077:7077"
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master
+    environment:
+      - SPARK_MASTER_HOST=spark-master
+      - SPARK_MASTER_PORT=7077
+      - SPARK_MASTER_WEBUI_PORT=8080
+    volumes:
+      - ./scripts:/opt/spark-apps
+      - spark-data:/opt/spark-data
+    networks:
+      - ddos-network
+
+  spark-worker:
+    image: apache/spark:3.4.1-scala2.12-java11-python3-ubuntu
+    container_name: spark-worker
+    ports:
+      - "8082:8081"
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
+    environment:
+      - SPARK_WORKER_CORES=2
+      - SPARK_WORKER_MEMORY=2g
+      - SPARK_WORKER_WEBUI_PORT=8081
+      - SPARK_MASTER=spark://spark-master:7077
+    depends_on:
+      - spark-master
+    volumes:
+      - ./scripts:/opt/spark-apps
+      - spark-data:/opt/spark-data
+    networks:
+      - ddos-network
+
+  hbase:
+    image: harisekhon/hbase:1.4
+    container_name: hbase
+    hostname: hbase
+    ports:
+      - "16000:16000"
+      - "16010:16010"
+      - "16020:16020"
+      - "16030:16030"
+      - "9090:9090"
+      - "2888:2888"
+    environment:
+      HBASE_CONF_hbase_rootdir: hdfs://namenode:9000/hbase
+      HBASE_CONF_hbase_cluster_distributed: "true"
+      HBASE_CONF_hbase_zookeeper_quorum: zookeeper
+      HBASE_CONF_hbase_zookeeper_property_clientPort: 2181
+      HBASE_MANAGES_ZK: "false"
+    depends_on:
+      - zookeeper
+      - namenode
+    networks:
+      - ddos-network
+
+networks:
+  ddos-network:
+    driver: bridge
+
+volumes:
+  namenode-data:
+  datanode-data:
+  spark-data:
